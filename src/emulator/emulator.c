@@ -348,6 +348,7 @@ int main(int argc, char** argv)
         write_tileset("tileset.png");
 
         free_tileset();
+        SDL_DestroyRenderer(p_sdl_renderer);
         SDL_FreeSurface(background);
         background = NULL;
         SDL_DestroyWindow(window);
