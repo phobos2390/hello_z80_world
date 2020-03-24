@@ -10,7 +10,7 @@ valgrind: emulator assemble
 	valgrind build/z80_emulator build/main.z80bin
 
 assemble: emulator
-	spasm src/assembler/main.asm build/main.z80bin
+	spasm -I src/assembler src/assembler/main.asm build/main.z80bin
 
 
 #build:

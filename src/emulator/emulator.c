@@ -16,8 +16,8 @@ static const size_t s_c_background_color = 0xff000000;
 
 static const size_t s_c_max_byte = 0x100;
 static const size_t s_c_memory_size = 0x1000;
-static const size_t s_c_grid_height = 0x40;
-static const size_t s_c_grid_width = 0x80;
+static const size_t s_c_grid_height = 0x10;
+static const size_t s_c_grid_width = 0x10;
 static const size_t s_c_grid_size = s_c_grid_height * s_c_grid_width;
 static const size_t s_c_stack_top = 0xffff;
 static const size_t s_c_stack_size = 0x1000;
@@ -126,7 +126,7 @@ void set_tileset_character(char character)
         size_t character_offset = ucharacter * s_c_tile_width;
         for(uint32_t i = 0; i < s_c_tile_height; i++)
         {
-            uint32_t character_row = tileset[character][i];
+            uint32_t character_row = tileset[ucharacter][i];
             for(uint32_t j = 0; j < s_c_tile_width; j++)
             {
                 uint32_t r = (s_c_tile_width - 1) - j;
@@ -266,23 +266,12 @@ int main(int argc, char** argv)
     memset(tileset, 0, s_c_max_byte * s_c_tile_height);
     memset(display_grid, 0, s_c_grid_size);
     
-    /* Create a 32-bit surface with the bytes of each pixel in R,G,B,A order,
-       as expected by OpenGL for textures */
-    SDL_Surface *background;
-
-    /* or using the default masks for the depth: */
-    background = SDL_CreateRGBSurface(0, width, height, depth, 0, 0, 0, 0);
-
     init_tileset();
     
-    if (background == NULL) 
+    int32_t error = SDL_Init(SDL_INIT_VIDEO);
+    
+    if(error == 0)
     {
-        SDL_Log("SDL_CreateRGBSurface() failed: %s", SDL_GetError());
-    }
-    else
-    {
-        SDL_Init(SDL_INIT_VIDEO);
-
         SDL_Window *window = SDL_CreateWindow( "Z80 Test"
                                              , SDL_WINDOWPOS_UNDEFINED
                                              , SDL_WINDOWPOS_UNDEFINED
@@ -291,8 +280,8 @@ int main(int argc, char** argv)
                                              , 0);
 
         p_sdl_renderer = SDL_CreateRenderer( window
-                                                   , -1
-                                                   , SDL_RENDERER_SOFTWARE);
+                                           , -1
+                                           , SDL_RENDERER_SOFTWARE);
         SDL_SetRenderDrawColor(p_sdl_renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
         SDL_RenderClear(p_sdl_renderer);
         SDL_RenderPresent(p_sdl_renderer);
@@ -302,6 +291,8 @@ int main(int argc, char** argv)
             set_tileset_character(i);
         }
 
+        write_tileset("tileset_initial.png");
+        
         SDL_Event event;
 
         halted = FALSE;
@@ -326,7 +317,7 @@ int main(int argc, char** argv)
             z80_reset(&z80);
 
             while( (continuing == TRUE)
-                && (iterations++ < 0xF000))
+                /*&& (iterations++ < 0xF000)*/)
             {
                 z80_run(&z80, 100);
                 while(SDL_PollEvent(&event)) 
@@ -349,10 +340,12 @@ int main(int argc, char** argv)
 
         free_tileset();
         SDL_DestroyRenderer(p_sdl_renderer);
-        SDL_FreeSurface(background);
-        background = NULL;
         SDL_DestroyWindow(window);
         SDL_Quit();
+    }
+    else
+    {
+        SDL_Log("SDL_Init() failed: %s", SDL_GetError());
     }
 
     return 0;
