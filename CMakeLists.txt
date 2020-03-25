@@ -13,11 +13,6 @@ find_package(SDL2 REQUIRED)
 find_package(SDL2_image REQUIRED)
 include_directories(${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS})
 
-#find_package (PkgConfig REQUIRED)
-#pkg_check_modules (GTK3 REQUIRED gtk+-3.0)
-#
-#include_directories (${GTK3_INCLUDE_DIRS})
-
 include_directories("${PROJ_DIR}/z/API")
 include_directories("${PROJ_DIR}/z80/API")
 
@@ -32,10 +27,7 @@ foreach(source_dir ${Z80_SOURCE_DIRECTORIES})
 endforeach()
 
 message("Building z80 source emulator files ${z80_source_files}")
-add_library(z80_emu_library ${z80_source_files})
+add_library(z80_emu_library SHARED ${z80_source_files})
 
 add_executable(z80_emulator src/emulator/emulator.c)
-target_link_libraries(z80_emulator z80_emu_library)
-#target_link_libraries(z80_emulator ${GTK3_LIBRARIES})
-target_link_libraries(z80_emulator ${SDL2_LIBRARIES})
-target_link_libraries(z80_emulator ${SDL2_IMAGE_LIBRARIES})
+target_link_libraries(z80_emulator z80_emu_library ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
