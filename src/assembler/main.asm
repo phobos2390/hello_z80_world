@@ -1,21 +1,83 @@
 ; file: main.asm
 
+#define stdout_addr $8000
+#define grid_iter $8001
+#define key_input_location $8002
+#define interrupt_data $DF00
+#define tileset_start $2000
+#define tileset_height $8
+#define ts_space_start $2000 + (' ' * $8) 
+#define grid_height $10
+#define grid_width $10
+
+start:
+  jp main
+
+isr_table:
+.db isr_start
+.db $0
+
+isr_start:
+  di
+  ex af,af'
+  exx
+
+  ld a, (key_input_location)
+  ld (stdout_addr), a
+  ld a, $0
+  ld (key_input_location), a
+
+  exx
+  ex af,af'  
+  ret
+  
 main:
   call load_tileset
-  ld hl, railway_print
-  call print_hl
+;  ld hl, multiline_message
+;  call print_hl
+;  ld hl, double_space
+;  call print_hl
+  ei
+  im 2
+  ld hl, isr_table
+  ld a, h
+  ld i, a
+  ld a, l
+  ld (interrupt_data), a
+;  call print_newline
+;  call print_hl
+ 
+;  ld hl, railway_print
+;  call print_hl
 ;  ld hl, full_tileset_print
 ;  call print_hl
 ;  ld hl, hello_world_message
 ;  call print_hl
+main_loop:
+  ei
   halt
+  jp main_loop
+
+print_newline:
+  ld a, (grid_iter)
+  add a, grid_width
+  and $F0
+  ld (grid_iter), a
+  ret
 
 print_hl:
   ld a,(hl)
   sub $0
   jp z, print_hl_end
+  sub '\n'
+  jp z, print_hl_newline
+  add a, '\n'
   inc hl
-  ld ($8000), a
+  ld (stdout_addr), a
+  jp print_hl
+print_hl_newline:
+  call print_newline
+  inc hl
   jp print_hl
 print_hl_end:
   ret
@@ -24,7 +86,7 @@ load_tileset:
   ld hl, tileset_orig
   ld bc, tileset_end
   ; starts at 'a' in tileset list
-  ld de, $2100 ;$2308
+  ld de, ts_space_start  ;$2308
 load_tileset_loop:
   ld a, c
   sub l
@@ -79,5 +141,11 @@ railway_print:
 
 hello_world_message:
 .db "Hello World!",0
+
+multiline_message:
+.db "Multiline\nmessage\n\n\n",0
+
+double_space:
+.db "Double\n\nspaced\n\nmessage",0
 
 #include tileset_defs.asm

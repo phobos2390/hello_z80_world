@@ -25,13 +25,20 @@ static const size_t s_c_ram_orig = 0xE000;
 static const size_t s_c_ram_size = 0x1000;
 static const size_t s_c_tile_width = 0x8;
 static const size_t s_c_tile_height = 0x8;
+static const size_t s_c_stdout_addr = 0x8000;
+static const size_t s_c_grid_iter_addr = 0x8001;
+static const size_t s_c_char_input_addr = 0x8002;
+static const size_t s_c_interrupt_addr = 0xDF00;
 static const size_t s_c_tileset_orig = 0x2000;
 static const size_t s_c_tileset_size = s_c_max_byte * s_c_tile_height;
+static const size_t s_c_display_orig = 0x2800;
 
 static uint8_t halted = 0;
 
 static uint8_t continuing;
-static uint16_t grid_iter;
+static uint8_t grid_iter;
+static uint8_t char_input;
+static uint8_t interrupt_data;
 
 static SDL_Surface* p_sdl_tileset_picture;
 static SDL_Renderer *p_sdl_renderer;
@@ -189,18 +196,31 @@ void write_cb(void* context, zuint16 address, zuint8 value)
     if(((s_c_stack_top - s_c_stack_size) < address)
      && (address <= s_c_stack_top))
     {
-        printf("Value written: 0x%04x: 0x%x\n", address, value);
+        printf("Writing to stack %x %x\n", address, value);
         stack[s_c_stack_top - address] = value;
     }
-    else if(address == 0x8000)
+    else if(address == s_c_stdout_addr)
     {
+        printf("%c", value);
         display_grid[grid_iter++] = value;
-        grid_iter = grid_iter % s_c_grid_size;
+        screen_refresh();
     }
+    else if(address == s_c_grid_iter_addr)
+    {
+        grid_iter = value;
+    }
+    else if(address == s_c_char_input_addr)
+    {
+        printf("Setting buffered char input: %x\n", value);
+        char_input = value;
+    } 
+    else if(address == s_c_interrupt_addr)
+    {
+        interrupt_data = value;
+    } 
     else if((s_c_ram_orig <= address) 
          && (address < (s_c_ram_size + s_c_ram_orig)))
     {
-        printf("Ram written: 0x%04x: 0x%x\n", address, value);
         ram[address - s_c_ram_orig] = value;
     }
     else if((s_c_tileset_orig <= address)
@@ -212,6 +232,13 @@ void write_cb(void* context, zuint16 address, zuint8 value)
         tileset[character][character_row] = value;
         set_tileset_character(character);
     }
+    else if((s_c_display_orig <= address)
+         && (address < (s_c_display_orig + s_c_grid_size)))
+    {
+        display_grid[address - s_c_display_orig] = value;
+        screen_refresh();
+    }
+    fflush(stdout);
 }
 
 zuint8 read_cb(void* context, zuint16 address)
@@ -220,24 +247,49 @@ zuint8 read_cb(void* context, zuint16 address)
     if(address < s_c_memory_size)
     {
         read_value = instructions[address];
-//        printf( "Reading value: 0x%04x: 0x%02x (%s)\n"
-//              , address
-//              , read_value
-//              , instruction_names[read_value]);
+        printf("Executing instruction at 0x%x: %s (%x)\n", address, instruction_names[read_value], read_value);
     }
     if(((s_c_stack_top - s_c_stack_size) < address)
      && (address <= s_c_stack_top))
     {
         read_value = stack[s_c_stack_top - address];
     }
+    else if((s_c_ram_orig <= address) 
+         && (address < (s_c_ram_size + s_c_ram_orig)))
+    {
+        read_value = ram[address - s_c_ram_orig];
+    }
+    else if(address == s_c_grid_iter_addr)
+    {
+        read_value = grid_iter;
+    }
+    else if(address == s_c_char_input_addr)
+    {
+        printf("Character input: %c\n", char_input);
+        read_value = char_input;
+    }
+    else if((s_c_display_orig <= address)
+         && (address < (s_c_display_orig + s_c_grid_size)))
+    {
+        read_value = display_grid[address - s_c_display_orig];
+    }
+    fflush(stdout);
     return read_value;
 }
 
 void halt_cb(void* context, zboolean state)
 {
     screen_refresh();
-    halted = TRUE;
+    halted = !state;
 //    continuing = !state;
+}
+
+zuint32 int_data_cb(void* context)
+{
+    zuint32 data = 0;
+    //printf("Interrupt callback invoked. Data: %x\n", interrupt_data);
+    data = interrupt_data;
+    return data;
 }
 
 void read_binary(char* filename, uint8_t* instruct, size_t memory_size)
@@ -312,14 +364,14 @@ int main(int argc, char** argv)
             z80.halt = &halt_cb;    
             z80.in = &in_cb;
             z80.out = &out_cb;
+            z80.int_data = &int_data_cb;
 
             z80_power(&z80, TRUE);
             z80_reset(&z80);
 
-            while( (continuing == TRUE)
+            while( continuing == TRUE
                 /*&& (iterations++ < 0xF000)*/)
             {
-                z80_run(&z80, 100);
                 while(SDL_PollEvent(&event)) 
                 {
                     if (event.type == SDL_QUIT) 
@@ -327,7 +379,19 @@ int main(int argc, char** argv)
                         printf("SDL_QUIT\n");
                         continuing = FALSE;
                     }
+                    else if(event.type == SDL_TEXTINPUT)
+                    {
+                        //printf("%s\n", event.text.text);
+                        char_input = *event.text.text;
+			halted = FALSE;
+                        z80_int(&z80, TRUE);
+                    }
                 }
+                if(halted == FALSE)
+                {
+                    z80_run(&z80, 10);
+                }
+                screen_refresh();
                 SDL_RenderPresent(p_sdl_renderer);
                 if(halted == TRUE)
                 {
