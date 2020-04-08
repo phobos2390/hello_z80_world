@@ -265,7 +265,6 @@ zuint8 read_cb(void* context, zuint16 address)
     }
     else if(address == s_c_char_input_addr)
     {
-        printf("Character input: %c\n", char_input);
         read_value = char_input;
     }
     else if((s_c_display_orig <= address)
@@ -369,6 +368,8 @@ int main(int argc, char** argv)
             z80_power(&z80, TRUE);
             z80_reset(&z80);
 
+            uint8_t initializing = TRUE;
+            
             while( continuing == TRUE
                 /*&& (iterations++ < 0xF000)*/)
             {
@@ -381,7 +382,7 @@ int main(int argc, char** argv)
                     }
                     else if(event.type == SDL_TEXTINPUT)
                     {
-                        //printf("%s\n", event.text.text);
+                        printf("%s\n", event.text.text);
                         char_input = *event.text.text;
 			halted = FALSE;
                         z80_int(&z80, TRUE);
@@ -391,11 +392,15 @@ int main(int argc, char** argv)
                 {
                     z80_run(&z80, 10);
                 }
+                else
+                {
+                    initializing = FALSE;
+                }
                 screen_refresh();
                 SDL_RenderPresent(p_sdl_renderer);
-                if(halted == TRUE)
+                if(initializing == FALSE)
                 {
-                    SDL_Delay(100);
+                    SDL_Delay(10);
                 }
             }
         }       
