@@ -2,6 +2,9 @@
 
 #define stdout_addr $8000
 #define grid_iter $8001
+#define key_buffer_size $E000
+#define key_buffer $E001
+#define cursor_val $E002
 #define key_input_location $8002
 #define interrupt_data $DF00
 #define tileset_start $2000
@@ -9,6 +12,10 @@
 #define ts_space_start $2000 + (' ' * $8) 
 #define grid_height $10
 #define grid_width $10
+#define grid_width_h $08
+#define display_start $2800
+#define display_end display_start + (grid_height * grid_width)
+#define cursor_key $8F
 
 start:
   jp main
@@ -23,8 +30,8 @@ isr_start:
   exx
 
   ld a, (key_input_location)
-  ld (stdout_addr), a
-  ld a, $0
+  ld (key_buffer), a
+  ld a, $0  
   ld (key_input_location), a
 
   exx
@@ -33,36 +40,125 @@ isr_start:
   
 main:
   call load_tileset
-;  ld hl, multiline_message
-;  call print_hl
-;  ld hl, double_space
-;  call print_hl
-  ei
+  call init_cursor_val
+  ld hl, intro_message
+  call print_hl
   im 2
   ld hl, isr_table
   ld a, h
   ld i, a
   ld a, l
   ld (interrupt_data), a
-;  call print_newline
-;  call print_hl
- 
-;  ld hl, railway_print
-;  call print_hl
-;  ld hl, full_tileset_print
-;  call print_hl
-;  ld hl, hello_world_message
-;  call print_hl
 main_loop:
+  call print_cursor
   ei
   halt
+main_process_input:
+  ld a, (key_buffer)
+  sub '\n'
+  jp z, main_print_nl
+  add a, '\n'
+  sub $01
+  jp z, main_up
+  add a, $01
+  sub $02
+  jp z, main_down
+  add a, $02
+  sub $03
+  jp z, main_left
+  add a, $03
+  sub $04
+  jp z, main_right
+  add a, $04
+  sub $08
+  jp z, main_backspace
+  add a, $08
+  ld (stdout_addr), a
+  call store_cursor_val
+  jp main_loop
+main_print_nl:
+  call print_newline
+  jp main_loop
+main_up:
+  ld a, (cursor_val)
+  ld (stdout_addr), a
+  ld a, (grid_iter)
+  sub a, grid_width
+  dec a
+  ld (grid_iter), a
+  call store_cursor_val
+  jp main_loop
+main_down:
+  ld a, (cursor_val)
+  ld (stdout_addr), a
+  ld a, (grid_iter)
+  add a, grid_width
+  dec a
+  ld (grid_iter), a
+  call store_cursor_val
+  jp main_loop
+main_left:
+  ld a, (cursor_val)
+  ld (stdout_addr), a
+  ld a, (grid_iter)
+  dec a
+  dec a
+  ld (grid_iter), a
+  call store_cursor_val
+  jp main_loop
+main_right:
+  ld a, (cursor_val)
+  ld (stdout_addr), a
+  call store_cursor_val
+  jp main_loop
+main_backspace:
+  ld a, ' '
+  ld (stdout_addr), a
+  ld a, (grid_iter)
+  dec a
+  dec a
+  ld (grid_iter), a
+  ld a, ' '
+  ld (stdout_addr), a
+  ld a, (grid_iter)
+  dec a
+  ld (grid_iter), a
   jp main_loop
 
-print_newline:
+init_cursor_val:
+  ld a, ' '
+  ld (cursor_val), a
+  ret
+
+store_cursor_val:
+  push hl
+  ld hl, display_start
   ld a, (grid_iter)
+  add a, l
+  ld l, a
+  ld a, (hl)
+  ld (cursor_val), a
+  pop hl
+  ret
+
+print_cursor:
+  ld hl, display_start
+  ld a, (grid_iter)
+  add a, l
+  ld l, a
+  ld a, cursor_key
+  ld (hl), a
+  ret
+
+print_newline:
+  ld a, (cursor_val)
+  ld (stdout_addr), a
+  ld a, (grid_iter)
+  dec a
   add a, grid_width
   and $F0
   ld (grid_iter), a
+  call store_cursor_val
   ret
 
 print_hl:
@@ -146,6 +242,10 @@ multiline_message:
 .db "Multiline\nmessage\n\n\n",0
 
 double_space:
-.db "Double\n\nspaced\n\nmessage",0
+.db "Double\n\nspaced\n\nmessage\n",0
+
+intro_message:
+.db "Hello and welcome to my shell.\n"
+.db "$ ",0
 
 #include tileset_defs.asm
