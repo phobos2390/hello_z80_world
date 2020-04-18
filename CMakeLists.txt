@@ -16,6 +16,10 @@ include_directories(${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS})
 include_directories("${PROJ_DIR}/z/API")
 include_directories("${PROJ_DIR}/z80/API")
 
+include_directories("${PROJ_DIR}/src/")
+
+add_subdirectory("${PROJ_DIR}/src/constants")
+
 set(Z80_SOURCE_DIRECTORIES ${PROJ_DIR}/z80/)
 
 set(z80_source_files "")

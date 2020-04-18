@@ -1,20 +1,11 @@
 ; file: main.asm
 
-#define stdout_addr $8000
-#define grid_iter $8001
+#include assembler_constants.asm
+
 #define key_buffer_size $E000
-#define key_buffer $E001
-#define cursor_val $E002
-#define key_input_location $8002
-#define interrupt_data $DF00
-#define tileset_start $2000
-#define tileset_height $8
-#define ts_space_start $2000 + (' ' * $8) 
-#define grid_height $10
-#define grid_width $10
-#define grid_width_h $08
-#define display_start $2800
-#define display_end display_start + (grid_height * grid_width)
+#define key_buffer ram_start + 1
+#define cursor_val ram_start + 2
+#define grid_width_h grid_width / 2
 #define cursor_key $8F
 
 start:
@@ -80,31 +71,50 @@ main_print_nl:
   call print_newline
   jp main_loop
 main_up:
+  push hl
+  push de
   ld a, (cursor_val)
   ld (stdout_addr), a
-  ld a, (grid_iter)
-  sub a, grid_width
-  dec a
-  ld (grid_iter), a
+  ld hl, (grid_iter)
+  ld de, grid_width
+  ld a, d
+  xor $FF
+  ld d, a
+  ld a, e
+  xor $FF
+  ld e, a
+  inc de
+  add hl, de
+  dec hl
+  ld (grid_iter), hl
   call store_cursor_val
+  pop de
+  pop hl
   jp main_loop
 main_down:
+  push hl
+  push de
   ld a, (cursor_val)
   ld (stdout_addr), a
-  ld a, (grid_iter)
-  add a, grid_width
-  dec a
-  ld (grid_iter), a
+  ld hl, (grid_iter)
+  ld de, grid_width
+  add hl, de
+  dec hl
+  ld (grid_iter), hl
   call store_cursor_val
+  pop de
+  pop hl
   jp main_loop
 main_left:
+  push hl
   ld a, (cursor_val)
   ld (stdout_addr), a
-  ld a, (grid_iter)
-  dec a
-  dec a
-  ld (grid_iter), a
+  ld hl, (grid_iter)
+  dec hl
+  dec hl
+  ld (grid_iter), hl
   call store_cursor_val
+  pop hl
   jp main_loop
 main_right:
   ld a, (cursor_val)
@@ -132,33 +142,47 @@ init_cursor_val:
 
 store_cursor_val:
   push hl
-  ld hl, display_start
-  ld a, (grid_iter)
-  add a, l
-  ld l, a
+  push de
+  ld de, display_start
+  ld hl, (grid_iter)
+  add hl, de
   ld a, (hl)
   ld (cursor_val), a
+  pop de
   pop hl
   ret
 
 print_cursor:
+  push hl
+  push de
   ld hl, display_start
-  ld a, (grid_iter)
-  add a, l
-  ld l, a
+  ld de, (grid_iter)
+  add hl, de
   ld a, cursor_key
   ld (hl), a
+  pop de
+  pop hl
   ret
 
 print_newline:
+  push hl
+  push de
   ld a, (cursor_val)
   ld (stdout_addr), a
-  ld a, (grid_iter)
-  dec a
-  add a, grid_width
-  and $F0
-  ld (grid_iter), a
+  ld hl, (grid_iter)
+  dec hl
+  ld de, grid_width
+  add hl, de
+  ld a, l
+  and grid_mask_l
+  ld l, a
+  ld a, h
+  and grid_mask_h
+  ld h, a
+  ld (grid_iter), hl
   call store_cursor_val
+  pop de
+  pop hl
   ret
 
 print_hl:

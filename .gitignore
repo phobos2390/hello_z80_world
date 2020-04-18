@@ -2,3 +2,6 @@ build
 nbproject
 tileset.png
 *.swp
+*.in
+src/assembler/assembler_constants.asm
+src/emulator/emulator_constants.h

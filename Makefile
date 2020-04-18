@@ -21,4 +21,4 @@ assemble: emulator
 
 
 clean: 
-	rm -rf build
+	rm -rf build src/emulator/emulator_constants.h src/assembler/assembler_constants.asm

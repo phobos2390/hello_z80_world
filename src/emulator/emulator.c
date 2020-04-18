@@ -9,34 +9,12 @@
 #include <unistd.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
-
-static const size_t s_c_color_depth = 0x20;
-static const size_t s_c_foreground_color = 0xffccccff;
-static const size_t s_c_background_color = 0xff000000;
-
-static const size_t s_c_max_byte = 0x100;
-static const size_t s_c_memory_size = 0x1000;
-static const size_t s_c_grid_height = 0x10;
-static const size_t s_c_grid_width = 0x10;
-static const size_t s_c_grid_size = s_c_grid_height * s_c_grid_width;
-static const size_t s_c_stack_top = 0xffff;
-static const size_t s_c_stack_size = 0x1000;
-static const size_t s_c_ram_orig = 0xE000;
-static const size_t s_c_ram_size = 0x1000;
-static const size_t s_c_tile_width = 0x8;
-static const size_t s_c_tile_height = 0x8;
-static const size_t s_c_stdout_addr = 0x8000;
-static const size_t s_c_grid_iter_addr = 0x8001;
-static const size_t s_c_char_input_addr = 0x8002;
-static const size_t s_c_interrupt_addr = 0xDF00;
-static const size_t s_c_tileset_orig = 0x2000;
-static const size_t s_c_tileset_size = s_c_max_byte * s_c_tile_height;
-static const size_t s_c_display_orig = 0x2800;
+#include <emulator/emulator_constants.h>
 
 static uint8_t halted = 0;
 
 static uint8_t continuing;
-static uint8_t grid_iter;
+static uint16_t grid_iter;
 static uint8_t char_input;
 static uint8_t interrupt_data;
 
@@ -266,13 +244,18 @@ void write_cb(void* context, zuint16 address, zuint8 value)
     }
     else if(address == s_c_stdout_addr)
     {
-//        printf("'%c'\n", value);
+        //printf("'%c'\n", value);
         display_grid[grid_iter++] = value;
         screen_refresh();
+	grid_iter = (grid_iter % s_c_grid_size);
     }
-    else if(address == s_c_grid_iter_addr)
+    else if( (s_c_grid_iter_addr <= address)
+          && (address < (s_c_grid_iter_addr + sizeof(grid_iter))))
     {
-        grid_iter = value;
+        uint8_t* p_grid_iter = (uint8_t*)(&grid_iter);
+	p_grid_iter[address - s_c_grid_iter_addr] = value;
+	grid_iter = (grid_iter % s_c_grid_size);
+        //printf("Grid Iterator: %x\n", grid_iter);
     }
     else if(address == s_c_char_input_addr)
     {
@@ -286,6 +269,7 @@ void write_cb(void* context, zuint16 address, zuint8 value)
     else if((s_c_ram_orig <= address) 
          && (address < (s_c_ram_size + s_c_ram_orig)))
     {
+//	printf("0x%x: 0x%x RAM WRITE\n", address, value);
         ram[address - s_c_ram_orig] = value;
     }
     else if((s_c_tileset_orig <= address)
@@ -345,7 +329,7 @@ zuint8 read_cb(void* context, zuint16 address)
 //                      printf("0x%x: %s (%x, %x, %x, %x)\n", address, instruction_names[read_value], read_value, instructions[address + 1], instructions[address + 2], instructions[address + 3]);
                       break;
                  case 0xF:
-                      printf("Instruction Error: %s Failed to include proper opcode information (%x)",instruction_names[read_value], read_value);
+//                      printf("Instruction Error: %s Failed to include proper opcode information (%x)",instruction_names[read_value], read_value);
                       break;
                  default:
                      break;
@@ -362,14 +346,17 @@ zuint8 read_cb(void* context, zuint16 address)
          && (address < (s_c_ram_size + s_c_ram_orig)))
     {
         read_value = ram[address - s_c_ram_orig];
+//	printf("0x%x: 0x%x RAM READ", address, read_value);
     }
-    else if(address == s_c_grid_iter_addr)
+    else if( (s_c_grid_iter_addr <= address)
+          && (address < (s_c_grid_iter_addr + sizeof(grid_iter))))
     {
-        read_value = grid_iter;
+        uint8_t* p_grid_iter = (uint8_t*)(&grid_iter);
+	read_value = p_grid_iter[address - s_c_grid_iter_addr];
     }
     else if(address == s_c_char_input_addr)
     {
-        //printf("char input: '%c'\n", char_input);
+//        printf("char input: '%c'\n", char_input);
         read_value = char_input;
     }
     else if((s_c_display_orig <= address)
@@ -554,10 +541,10 @@ int main(int argc, char** argv)
                         z80_run(&z80, 1);
                     }
                 }
-                screen_refresh();
-                SDL_RenderPresent(p_sdl_renderer);
                 if(initializing == FALSE)
                 {
+                    screen_refresh();
+                    SDL_RenderPresent(p_sdl_renderer);
                     SDL_Delay(10);
                 }
             }
