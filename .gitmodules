@@ -1,6 +1,3 @@
-[submodule "z"]
-	path = z
-	url = git@github.com:redcode/z.git
-[submodule "z80"]
-	path = z80
-	url = git@github.com:redcode/z80.git
+[submodule "z80_sdl_emulator"]
+	path = z80_sdl_emulator
+	url = git@github.com:phobos2390/z80_sdl_emulator.git
