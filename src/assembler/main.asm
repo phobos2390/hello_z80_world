@@ -34,6 +34,10 @@ main:
   call init_cursor_val
   ld hl, intro_message
   call print_hl
+  ld hl, intro_message
+  call write_storage_hl
+  ld hl, double_space
+  call write_storage_hl
   im 2
   ld hl, isr_table
   ld a, h
@@ -185,6 +189,16 @@ print_newline:
   pop hl
   ret
 
+write_storage_hl:
+  ld a,(hl)
+  sub $0
+  jp z, write_storage_hl_end
+  inc hl
+  ld (percistence_addr), a
+  jp write_storage_hl
+write_storage_hl_end:
+  ret
+
 print_hl:
   ld a,(hl)
   sub $0
@@ -272,4 +286,4 @@ intro_message:
 .db "Hello and welcome to my shell.\n"
 .db "$ ",0
 
-#include tileset_defs.asm
+#include tileset_defs_color.asm

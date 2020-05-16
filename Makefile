@@ -1,5 +1,6 @@
 assembled_bin = build/main_z80bin
 emulator_bin = build/z80_sdl_emulator/z80_emulator
+persistence_file = build/persistence.txt
 
 emulator: 
 	mkdir -p build
@@ -7,10 +8,10 @@ emulator:
 	cd build; make
 
 run: emulator assemble
-	$(emulator_bin) $(assembled_bin)
+	$(emulator_bin) $(assembled_bin) $(persistence_file)
 
 valgrind: emulator assemble
-	valgrind $(emulator_bin) $(assembled_bin)
+	valgrind $(emulator_bin) $(assembled_bin) $(persistence_file)
 
 assemble: emulator
 	spasm	-I z80_sdl_emulator/src/assembler\
